@@ -1,8 +1,33 @@
 <?php
-
+/**
+ * RSS Feed Datasource
+ *
+ * Helps reading RSS feeds in CakePHP as if it were a model.
+ *
+ * PHP versions 4 and 5
+ *
+ *
+ * Licensed under The MIT License
+ * Redistributions of files must retain the above copyright notice.
+ *
+ * @filesource
+ * @copyright     Copyright 2009, Loadsys Consulting, Inc. (http://www.loadsys.com)
+ * @version       $1.0$
+ * @modifiedby    $LastChangedBy: Joey Trapp (Loadsys) $
+ * @lastmodified  $Date: 2010-10-11$
+ * @license       http://www.opensource.org/licenses/mit-license.php The MIT License
+ */
 class ServerResponseComponent extends Object {
 
 	public $components = array('RequestHandler');
+	
+	/**
+	 * Boolean property that is true when a request is of type JSON.
+	 *
+	 * @var bool
+	 * @access public
+	 */
+	public $isJson = true;
 
 	/**
 	 * An array of status code indexes that relate to the correctly formatted
@@ -75,7 +100,7 @@ class ServerResponseComponent extends Object {
 	 * @var bool
 	 * @access public
 	 */
-	protected $methodSuccess = false;
+	protected $methodSuccess = true;
 	
 	/**
 	 * Data array that is built to be set to the view. The controller will not
@@ -106,6 +131,7 @@ class ServerResponseComponent extends Object {
 	 */
 	public function initialize(&$controller, $settings = array()) {
 		$this->setOptions($settings);
+		$this->isJson = ($controller->params['url']['ext'] == 'json');
 		$this->responseData = array(
 			'controller' => $controller->params['controller'],
 			'action' => $controller->params['action'],
@@ -131,17 +157,19 @@ class ServerResponseComponent extends Object {
 	 * @return void
 	 */
 	public function startup(&$controller) {
-		$postMethodTypes = array('add', 'edit', 'delete');
-		$getMethodTypes = array('view', 'index');
-		$validMethodTypes = array_merge($postMethodTypes, $getMethodTypes);
-		if (!$this->methodType && in_array($this->responseData['action'], $validMethodTypes)) {
-			$this->setMethodType($this->responseData['action']);
-		}
-		if (in_array(strtolower($this->methodType), $postMethodTypes) && !$this->RequestHandler->isPost()) {
-			$this->setResponseCode(405);
-		}
-		if (in_array(strtolower($this->methodType), $getMethodTypes) && !$this->RequestHandler->isGet()) {
-			$this->setResponseCode(405);
+		if ($this->isJson) {
+			$postMethodTypes = array('add', 'edit', 'delete');
+			$getMethodTypes = array('view', 'index');
+			$validMethodTypes = array_merge($postMethodTypes, $getMethodTypes);
+			if (!$this->methodType && in_array($this->responseData['action'], $validMethodTypes)) {
+				$this->setMethodType($this->responseData['action']);
+			}
+			if (in_array(strtolower($this->methodType), $postMethodTypes) && !$this->RequestHandler->isPost()) {
+				$this->setResponseCode(405);
+			}
+			if (in_array(strtolower($this->methodType), $getMethodTypes) && !$this->RequestHandler->isGet()) {
+				$this->setResponseCode(405);
+			}
 		}
 	}
 	
@@ -153,31 +181,32 @@ class ServerResponseComponent extends Object {
 	 * @return void
 	 */
 	public function beforeRender(&$controller) {
-		$this->generateStatusCode();
-		$params = $controller->params;
-		if (isset($params['paging'])) {
-			$paging = $params['paging'];
-			$model = Inflector::classify($this->responseData['controller']);
-			if (isset($paging[$model])) {
-				$paging = $paging[$model];
-				header('X-Paging-Page: '.(int)$paging['page']);
-				header('X-Paging-Current: '.(int)$paging['current']);
-				header('X-Paging-Count: '.(int)$paging['count']);
-				header('X-Paging-Next: '.(int)$paging['nextPage']);
-				header('X-Paging-Prev: '.(int)$paging['prevPage']);
-				header('X-Paging-PageCount: '.(int)$paging['pageCount']);
+		if ($this->isJson) {
+			$this->generateStatusCode();
+			$params = $controller->params;
+			if (isset($params['paging'])) {
+				$paging = $params['paging'];
+				$model = Inflector::classify($this->responseData['controller']);
+				if (isset($paging[$model])) {
+					$paging = $paging[$model];
+					header('X-Paging-Page: '.(int)$paging['page']);
+					header('X-Paging-Current: '.(int)$paging['current']);
+					header('X-Paging-Count: '.(int)$paging['count']);
+					header('X-Paging-Next: '.(int)$paging['nextPage']);
+					header('X-Paging-Prev: '.(int)$paging['prevPage']);
+					header('X-Paging-PageCount: '.(int)$paging['pageCount']);
+				}
 			}
+			if (!empty($this->responseData['status']) && in_array($this->responseData['status'], $this->statusCodes)) {
+				header($this->httpHeaderType.' '.$this->statusCodes[$this->responseData['status']]);
+				$this->responseData['code'] = $this->statusCodes[$this->responseData['status']];
+			} else {
+				header($this->httpHeaderType.' 500 Internal Server Error');
+				$this->responseData['code'] = '500 Internal Server Error';
+			}
+			$this->responseData['response'] = $this->returnData;
+			$this->render();
 		}
-		if (!empty($this->responseData['status']) && in_array($this->responseData['status'], $this->statusCodes)) {
-			header($this->httpHeaderType.' '.$this->statusCodes[$this->responseData['status']]);
-			$this->responseData['code'] = $this->statusCodes[$this->responseData['status']];
-		} else {
-			header($this->httpHeaderType.' 500 Internal Server Error');
-			$this->responseData['code'] = '500 Internal Server Error';
-		}
-		$this->responseData['response'] = $this->returnData;
-		$controller->set('response', $this->responseData);
-		$controller->autoRender = false;
 	}
 	
 	/**
@@ -237,6 +266,18 @@ class ServerResponseComponent extends Object {
 		}
 		$this->returnData = array_merge($this->returnData, $mergeData);
 		return true;
+	}
+	
+	/**
+	 * Method called at the end of the beforeRender method that will echo the
+	 * json encoded data and exit execution of the script.
+	 * 
+	 * @access public
+	 * @return void
+	 */
+	public function render() {
+		echo json_encode($this->responseData);
+		exit();		
 	}
 	
 	/**

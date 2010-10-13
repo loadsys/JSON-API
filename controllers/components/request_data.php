@@ -1,5 +1,22 @@
 <?php
-
+/**
+ * RSS Feed Datasource
+ *
+ * Helps reading RSS feeds in CakePHP as if it were a model.
+ *
+ * PHP versions 4 and 5
+ *
+ *
+ * Licensed under The MIT License
+ * Redistributions of files must retain the above copyright notice.
+ *
+ * @filesource
+ * @copyright     Copyright 2009, Loadsys Consulting, Inc. (http://www.loadsys.com)
+ * @version       $1.0$
+ * @modifiedby    $LastChangedBy: Joey Trapp (Loadsys) $
+ * @lastmodified  $Date: 2010-10-11$
+ * @license       http://www.opensource.org/licenses/mit-license.php The MIT License
+ */
 class RequestDataComponent extends Object {
 
 	/**
@@ -28,14 +45,6 @@ class RequestDataComponent extends Object {
 	 * @access public
 	 */
 	public $query = true;
-	
-	/**
-	 * Whether or not to add form data to the request data array
-	 * 
-	 * @var bool
-	 * @access public
-	 */
-	public $form = false;
 
 	/**
 	 * Array of valid options that can be modified from the settings
@@ -48,9 +57,10 @@ class RequestDataComponent extends Object {
 	public $validOptions = array(
 		'key',
 		'named',
-		'query',
-		'form'
+		'query'
 	);
+	
+	public $data = array();
 
 	/**
 	 * initialize function.
@@ -62,11 +72,10 @@ class RequestDataComponent extends Object {
 	 */
 	public function initialize(&$controller, $settings = array()) {
 		$this->setOptions($settings);
-		$data = $this->parseData($controller->params);
-		$controller->params[$this->key] = $data;
-		if (empty($params['named'])) {
-			$controller->params['named'] = $data;
-		}
+		$this->parseData($controller->params);
+		$controller->params[$this->key] = $this->data;
+		$controller->params['named'] = $this->data;
+		$controller->data = $this->formData;
 	}
 	
 	/**
@@ -90,12 +99,13 @@ class RequestDataComponent extends Object {
 	}
 	
 	/**
-	 * Takes data and returns the new array of merged data. Priority is
-	 * Query String, then Named Params, then Form Data
+	 * Takes params from the controller and merges the query string
+	 * data and named parameter data. Then it merges params['form']
+	 * and params['data'] and assigns it to $this->formData
 	 * 
 	 * @access protected
 	 * @param array $data
-	 * @return array
+	 * @return void
 	 */
 	protected function parseData($params) {
 		if (!is_array($params) || empty($params)) {
@@ -118,19 +128,17 @@ class RequestDataComponent extends Object {
 				$namedData = $params['named'];
 			}
 		}
-		if ($this->form) {
-			if (!empty($params['form'])) {
-				$form = $params['form'];
-				foreach ($form as $key => $value) {
-					if (is_array($value)) {
-						$formData[$key] = $value;
-					} else {
-						$formData = array_merge($formData, $value);
-					}
-				}
-			}
+		$form = array();
+		$data = array();
+		if (!empty($params['form'])) {
+			$form = $params['form'];
 		}
-		return array_merge($formData, $namedData, $queryData);
+		if (!empty($params['data'])) {
+			$data = $params['data'];
+		}
+		$this->formData = array_merge($form, $data);
+		$this->data = array_merge($namedData, $queryData);
+		return;
 	}
 
 }
