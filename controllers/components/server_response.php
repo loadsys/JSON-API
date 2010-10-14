@@ -1,20 +1,18 @@
 <?php
 /**
- * RSS Feed Datasource
+ * Server Response Component
  *
- * Helps reading RSS feeds in CakePHP as if it were a model.
- *
- * PHP versions 4 and 5
- *
+ * Automatically sets server response codes and the response data in JSON format
+ * for .json requests
  *
  * Licensed under The MIT License
  * Redistributions of files must retain the above copyright notice.
  *
  * @filesource
- * @copyright     Copyright 2009, Loadsys Consulting, Inc. (http://www.loadsys.com)
+ * @copyright     Copyright 2010, Loadsys Consulting, Inc. (http://www.loadsys.com)
  * @version       $1.0$
  * @modifiedby    $LastChangedBy: Joey Trapp (Loadsys) $
- * @lastmodified  $Date: 2010-10-11$
+ * @lastmodified  $Date: 2010-10-14$
  * @license       http://www.opensource.org/licenses/mit-license.php The MIT License
  */
 class ServerResponseComponent extends Object {

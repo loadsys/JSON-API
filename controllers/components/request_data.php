@@ -1,20 +1,19 @@
 <?php
 /**
- * RSS Feed Datasource
+ * Request Data Component
  *
- * Helps reading RSS feeds in CakePHP as if it were a model.
- *
- * PHP versions 4 and 5
- *
+ * Component that merges like data into a common location. Will merge query string 
+ * and named parameters together into a single location. Also will merge together
+ * form and data values and set them to the controllers data property
  *
  * Licensed under The MIT License
  * Redistributions of files must retain the above copyright notice.
  *
  * @filesource
- * @copyright     Copyright 2009, Loadsys Consulting, Inc. (http://www.loadsys.com)
+ * @copyright     Copyright 2010, Loadsys Consulting, Inc. (http://www.loadsys.com)
  * @version       $1.0$
  * @modifiedby    $LastChangedBy: Joey Trapp (Loadsys) $
- * @lastmodified  $Date: 2010-10-11$
+ * @lastmodified  $Date: 2010-10-14$
  * @license       http://www.opensource.org/licenses/mit-license.php The MIT License
  */
 class RequestDataComponent extends Object {

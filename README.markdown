@@ -2,10 +2,17 @@
 
 This plugin contains multiple smaller pieces that come together to make creating a JSON api easier.
 
-## Get the plugin
+### Get the plugin
 
 	cd app/plugins
 	git clone git@github.com:loadsys/JSON-API.git json_api
+	
+### Prerequisites
+
+Components in this plugin use the JSON php extension (json_encode() and json_decode()).
+The following code needs to be placed in the app/config/routes.php:
+
+	Router::parseExtensions('json')
 
 ## Request Data Component
 
