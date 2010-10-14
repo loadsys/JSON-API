@@ -1,5 +1,4 @@
 <?php 
-
 /**
  * JsonSource class.
  *
@@ -16,7 +15,15 @@
  * Then in any model that uses the api (or in app model if they all do) add this:
  * public $useDbConfig = 'json_api';
  * 
- * @extends Datasource
+ *Licensed under The MIT License
+ * Redistributions of files must retain the above copyright notice.
+ *
+ * @filesource
+ * @copyright     Copyright 2010, Loadsys Consulting, Inc. (http://www.loadsys.com)
+ * @version       $1.0$
+ * @modifiedby    $LastChangedBy: Joey Trapp (Loadsys) $
+ * @lastmodified  $Date: 2010-10-14$
+ * @license       http://www.opensource.org/licenses/mit-license.php The MIT License
  */
 App::import('Core', 'HttpSocket');
  
@@ -111,7 +118,6 @@ class JsonSource extends Datasource {
 	public function read(&$Model, $query = array()) {
 		$url = $this->_setApiUrl($Model);
 		$url .= '/index.json';
-		pr($query);
 		return $this->_makeApiCall($url, 'get');
 	}
 	
@@ -127,7 +133,7 @@ class JsonSource extends Datasource {
 	public function create(&$Model, $fields = null, $values = null) {
 		$url = $this->_setApiUrl($Model);
 		$url .= '/add.json';
-		$data = $this->_createDataArray($fields, $values);
+		$data = array_combine($fields, $values);
 		return $this->_makeApiCall($url, 'post', $data);
 	}
 	
@@ -143,7 +149,7 @@ class JsonSource extends Datasource {
 	public function update(&$Model, $fields = null, $values = null) {
 		$url = $this->_setApiUrl($Model);
 		$url .= '/edit/'.$Model->id.'.json';
-		$data = $this->_createDataArray($fields, $values);
+		$data = array_combine($fields, $values);
 		return $this->_makeApiCall($url, 'put', $data);
 	}
 	
@@ -188,7 +194,6 @@ class JsonSource extends Datasource {
 			return false;
 		}
 		$response = json_decode($this->_http->{$type}($url, $data), true);
-		pr($response);
 		return $response;
 	}
 	
@@ -210,25 +215,6 @@ class JsonSource extends Datasource {
 		}
 		return $url;
 	}
-	
-	/**
-	 * Takes array of fiels and values and creates an associative array,
-	 * suitable for being sent to the api.
-	 * 
-	 * @access protected
-	 * @param mixed $fields
-	 * @param mixed $values
-	 * @return void
-	 */
-	protected function _createDataArray($fields, $values) {
-		$data = array();
-		$count = count($fields);
-		for($i = 0; $i < $count; $i++) {
-			$data[$fields[$i]] = $values[$i];
-		}
-		return $data;
-	}
-
 
 }
 
