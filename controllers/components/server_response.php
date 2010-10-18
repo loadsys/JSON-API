@@ -25,7 +25,7 @@ class ServerResponseComponent extends Object {
 	 * @var bool
 	 * @access public
 	 */
-	public $isJson = true;
+	public $isJson;
 
 	/**
 	 * An array of status code indexes that relate to the correctly formatted
@@ -117,6 +117,16 @@ class ServerResponseComponent extends Object {
 	 * @access protected
 	 */
 	protected $httpHeaderType = 'HTTP/1.1';
+	
+	/**
+	 * Reference to the controller using the component. Gets replaced
+	 * in each call back so that the appropriate controller is always
+	 * being used.
+	 * 
+	 * @var mixed
+	 * @access protected
+	 */
+	protected $controller;
 
 	/**
 	 * Apply settings set in the controllers $components array and build the default
@@ -128,6 +138,7 @@ class ServerResponseComponent extends Object {
 	 * @return void
 	 */
 	public function initialize(&$controller, $settings = array()) {
+		$this->controller = $controller;
 		$this->setOptions($settings);
 		$this->isJson = ($controller->params['url']['ext'] == 'json');
 		$this->responseData = array(
@@ -139,7 +150,8 @@ class ServerResponseComponent extends Object {
 			'code' => null,
 			'message' => null,
 			'success' => null,
-			'response' => null
+			'response' => null,
+			'paging' => null
 		);
 	}
 
@@ -155,6 +167,7 @@ class ServerResponseComponent extends Object {
 	 * @return void
 	 */
 	public function startup(&$controller) {
+		$this->controller = $controller;
 		if ($this->isJson) {
 			$postMethodTypes = array('add', 'edit', 'delete');
 			$getMethodTypes = array('view', 'index');
@@ -162,12 +175,20 @@ class ServerResponseComponent extends Object {
 			if (!$this->methodType && in_array($this->responseData['action'], $validMethodTypes)) {
 				$this->setMethodType($this->responseData['action']);
 			}
+			if (method_exists($this->controller, 'beforeCompareMethodType')) {
+				$methodType = $this->controller->beforeCompareMethodType($this->methodType);
+				if (is_string($methodType)) {
+					$this->methodType = $methodType;
+				}
+			}
 			if (in_array(strtolower($this->methodType), $postMethodTypes) && !$this->RequestHandler->isPost()) {
 				$this->setResponseCode(405);
 			}
 			if (in_array(strtolower($this->methodType), $getMethodTypes) && !$this->RequestHandler->isGet()) {
 				$this->setResponseCode(405);
 			}
+			
+			// Set the responseData appropriately and call this render
 		}
 	}
 	
@@ -179,20 +200,40 @@ class ServerResponseComponent extends Object {
 	 * @return void
 	 */
 	public function beforeRender(&$controller) {
+		$this->controller = $controller;
 		if ($this->isJson) {
 			$this->generateStatusCode();
 			$params = $controller->params;
 			if (isset($params['paging'])) {
 				$paging = $params['paging'];
-				$model = Inflector::classify($this->responseData['controller']);
+				$_paging = array();
+				$model = $controller->modelClass;
 				if (isset($paging[$model])) {
-					$paging = $paging[$model];
-					header('X-Paging-Page: '.(int)$paging['page']);
-					header('X-Paging-Current: '.(int)$paging['current']);
-					header('X-Paging-Count: '.(int)$paging['count']);
-					header('X-Paging-Next: '.(int)$paging['nextPage']);
-					header('X-Paging-Prev: '.(int)$paging['prevPage']);
-					header('X-Paging-PageCount: '.(int)$paging['pageCount']);
+					$_paging = $paging[$model];
+				} else {
+					$models = $controller->modelNames;
+					foreach ($models as $m) {
+						if (isset($paging[$m])) {
+							$_paging = $paging[$m];
+							break;
+						}
+					}
+				}
+				if (!empty($_paging)) {
+					header('X-Paging-Page: '.(int)$_paging['page']);
+					header('X-Paging-Current: '.(int)$_paging['current']);
+					header('X-Paging-Count: '.(int)$_paging['count']);
+					header('X-Paging-Next: '.(int)$_paging['nextPage']);
+					header('X-Paging-Prev: '.(int)$_paging['prevPage']);
+					header('X-Paging-PageCount: '.(int)$_paging['pageCount']);
+					$this->responseData['paging'] = array(
+						'page' => (int)$_paging['page'],
+						'current' => (int)$_paging['current'],
+						'count' => (int)$_paging['count'],
+						'nextPage' => (int)$_paging['nextPage'],
+						'prevPage' => (int)$_paging['prevPage'],
+						'pageCount' => (int)$_paging['pageCount']
+					);
 				}
 			}
 			if (!empty($this->responseData['status']) && in_array($this->responseData['status'], $this->statusCodes)) {
@@ -274,6 +315,12 @@ class ServerResponseComponent extends Object {
 	 * @return void
 	 */
 	public function render() {
+		if (method_exists($this->controller, 'beforeJsonRender')) {
+			$returnData = $this->controller->beforeJsonRender($this->responseData['response']);
+			if (is_array($returnData)) {
+				$this->responseData['response'] = $returnData;
+			}
+		}
 		echo json_encode($this->responseData);
 		exit();		
 	}
@@ -299,6 +346,14 @@ class ServerResponseComponent extends Object {
 	}
 	
 	/**
+	 * The following methods are here just so that the properties can not be explicitly
+	 * set from the controller without using the appropriate methods ($this->set() and
+	 * beforeJsonRender() callback)
+	 */
+	public function setResponseData() { return; }
+	public function setReturnData() { return; }
+	
+	/**
 	 * Takes the settings array passed into the initialize method and
 	 * sets member properties to appropriate values.
 	 * 
@@ -322,14 +377,17 @@ class ServerResponseComponent extends Object {
 	 * Sets both the status code and message in the responseData array
 	 * 
 	 * @access protected
-	 * @param int $status
+	 * @param mixed $status
 	 * @param string $message
 	 * @return bool
 	 */
 	protected function setStatusMessageAndSuccess($status = null, $message = null, $success = null) {
+		if (is_array($status)) {
+			extract($status, EXTR_OVERWRITE);
+		}
 		if (!$status) {
 			return false;
-		}
+		} 
 		$this->responseData['status'] = $status;
 		if (!empty($message)) {
 			$this->responseData['message'] = $message;
@@ -401,7 +459,14 @@ class ServerResponseComponent extends Object {
 		if (!empty($this->responseMessage)) {
 			$message = $this->responseMessage;
 		}
-		return $this->setStatusMessageAndSuccess($status, $message, $success);
+		$params = compact('status', 'message', 'success');
+		if (method_exists($this->controller, 'beforeSetResponseInfo')) {
+			$tmpParams = $this->controller->beforeSetResponseInfo($params);
+			if (is_array($tmpParams)) {
+				$params = $tmpParams;
+			}
+		}
+		return $this->setStatusMessageAndSuccess($params);
 	}
 
 }
