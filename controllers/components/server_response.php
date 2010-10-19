@@ -101,16 +101,6 @@ class ServerResponseComponent extends Object {
 	protected $methodSuccess = true;
 	
 	/**
-	 * Data array that is built to be set to the view. The controller will not
-	 * have to set data to the view at all. Just add data view the controller 
-	 * setter method, and it will be set in $this->beforeRender();
-	 * 
-	 * @var array
-	 * @access protected
-	 */
-	protected $returnData = array();
-	
-	/**
 	 * httpHeaderType
 	 * 
 	 * @var string
@@ -140,12 +130,12 @@ class ServerResponseComponent extends Object {
 	public function initialize(&$controller, $settings = array()) {
 		$this->controller = $controller;
 		$this->setOptions($settings);
-		$this->isJson = ($controller->params['url']['ext'] == 'json');
+		$this->isJson = ($this->controller->params['url']['ext'] == 'json');
 		$this->responseData = array(
-			'controller' => $controller->params['controller'],
-			'action' => $controller->params['action'],
-			'plugin' => $controller->params['plugin'],
-			'url' => $controller->params['url']['url'],
+			'controller' => $this->controller->params['controller'],
+			'action' => $this->controller->params['action'],
+			'plugin' => $this->controller->params['plugin'],
+			'url' => $this->controller->params['url']['url'],
 			'status' => null,
 			'code' => null,
 			'message' => null,
@@ -153,43 +143,6 @@ class ServerResponseComponent extends Object {
 			'response' => null,
 			'paging' => null
 		);
-	}
-
-	/**
-	 * After the controller has had a chance in the beforeFilter callback to 
-	 * manually set properties in this component, this method will automatically
-	 * set response code to 405 in the http protocal type does not match with 
-	 * correct method types. Also responsible for saving to the access log db
-	 * table;
-	 * 
-	 * @access public
-	 * @param object &$controller
-	 * @return void
-	 */
-	public function startup(&$controller) {
-		$this->controller = $controller;
-		if ($this->isJson) {
-			$postMethodTypes = array('add', 'edit', 'delete');
-			$getMethodTypes = array('view', 'index');
-			$validMethodTypes = array_merge($postMethodTypes, $getMethodTypes);
-			if (!$this->methodType && in_array($this->responseData['action'], $validMethodTypes)) {
-				$this->setMethodType($this->responseData['action']);
-			}
-			if (method_exists($this->controller, 'beforeCompareMethodType')) {
-				$methodType = $this->controller->beforeCompareMethodType($this->methodType);
-				if (is_string($methodType)) {
-					$this->methodType = $methodType;
-				}
-			}
-			if (in_array(strtolower($this->methodType), $postMethodTypes) && !$this->RequestHandler->isPost()) {
-				$this->setResponseCode(405);
-			}
-			if (in_array(strtolower($this->methodType), $getMethodTypes) && !$this->RequestHandler->isGet()) {
-				$this->setResponseCode(405);
-			}
-			
-			// Set the responseData appropriately and call this render
-		}
 	}
 	
 	/**
@@ -200,8 +153,8 @@ class ServerResponseComponent extends Object {
 	 * @return void
 	 */
 	public function beforeRender(&$controller) {
-		$this->controller = $controller;
 		if ($this->isJson) {
+			$this->checkMethodType();
 			$this->generateStatusCode();
 			$params = $controller->params;
 			if (isset($params['paging'])) {
@@ -243,7 +196,7 @@ class ServerResponseComponent extends Object {
 				header($this->httpHeaderType.' 500 Internal Server Error');
 				$this->responseData['code'] = '500 Internal Server Error';
 			}
-			$this->responseData['response'] = $this->returnData;
+			$this->responseData['response'] = $this->controller->viewVars;
 			$this->render();
 		}
 	}
@@ -279,32 +232,6 @@ class ServerResponseComponent extends Object {
 		if (!$exists) {
 			throw new Exception("Stop it, property doesn't exist: ".$name);
 		}
-	}
-	
-	/**
-	 * Set values from the controller. These values will be added to the 
-	 * returnData property and then finally set to the view in a consistent
-	 * way at the end of the beforeRender callback.
-	 * 
-	 * @access public
-	 * @param mixed $key
-	 * @param mixed $data
-	 * @return void
-	 */
-	public function set($key = null, $data = null) {
-		if (!$key && !$data) {
-			return false;
-		}
-		$mergeData = array();
-		if (is_array($key)) {
-			$mergeData = $key;
-		} else {
-			if ($data) {
-				$mergeData = array($key => $data);
-			}
-		}
-		$this->returnData = array_merge($this->returnData, $mergeData);
-		return true;
 	}
 	
 	/**
@@ -371,6 +298,39 @@ class ServerResponseComponent extends Object {
 			}
 		}
 		return true;
+	}
+	
+	/**
+	 * Method that automatically sets the method type (if it already isn't set) based
+	 * on the action called in the controller. The methodType is then compared to the
+	 * HTTP request type. If it does not pass the tests, then the response code is set
+	 * to 405 and the component renders preemptively.
+	 * 
+	 * @access protected
+	 * @return void
+	 */
+	protected function chechMethodType() {
+		$postMethodTypes = array('add', 'edit', 'delete');
+		$getMethodTypes = array('view', 'index');
+		$validMethodTypes = array_merge($postMethodTypes, $getMethodTypes);
+		if (!$this->methodType && in_array($this->responseData['action'], $validMethodTypes)) {
+			$this->setMethodType($this->responseData['action']);
+		}
+		if (method_exists($this->controller, 'beforeCompareMethodType')) {
+			$methodType = $this->controller->beforeCompareMethodType($this->methodType);
+			if (is_string($methodType)) {
+				$this->methodType = $methodType;
+			}
+		}
+		if (in_array(strtolower($this->methodType), $postMethodTypes) && !$this->RequestHandler->isPost()) {
+			$this->setResponseCode(405);
+		}
+		if (in_array(strtolower($this->methodType), $getMethodTypes) && !$this->RequestHandler->isGet()) {
+			$this->setResponseCode(405);
+		}
+		if ($this->responseCode === 405) {
+			$this->render();
+		}
 	}
 	
 	/**
