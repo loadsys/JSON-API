@@ -309,7 +309,7 @@ class ServerResponseComponent extends Object {
 	 * @access protected
 	 * @return void
 	 */
-	protected function chechMethodType() {
+	protected function checkMethodType() {
 		$postMethodTypes = array('add', 'edit', 'delete');
 		$getMethodTypes = array('view', 'index');
 		$validMethodTypes = array_merge($postMethodTypes, $getMethodTypes);
