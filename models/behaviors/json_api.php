@@ -75,7 +75,7 @@ class JsonApiBehavior extends ModelBehavior {
  * @return void
  */
 	protected function setApiSettings(&$model, $action) {
-		if (!property_exists($model, 'apiModel') || empyt($model->apiModel) {
+		if (!property_exists($model, 'apiModel') || empyt($model->apiModel)) {
 			$model->apiModel = $model->name;
 		}
 		if (!property_exists($model, 'apiAction') || empty($model->apiAction)) {
