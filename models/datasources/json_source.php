@@ -100,10 +100,12 @@ class JsonSource extends Datasource {
 	 * @return void
 	 */
 	public function describe(&$Model) {
-		$url = $this->_setApiUrl($Model);
-		$response = $this->_makeApiCall($url, 'get');
-		$Model->_schema = $response;
-		return $response;
+		if (property_exists($Model, 'jsonSchema')) {
+			$Model->_schema = $Model->jsonSchema;
+		} else {
+			$Model->_schema = array();
+		}
+		return $Model->_schema;
 	}
 	
 	/**
@@ -209,7 +211,7 @@ class JsonSource extends Datasource {
 		}
 		if (property_exists($Model, 'apiAction')) {
 			$url .= '/'.strtolower(Inflector::underscore($Model->apiAction));
-			$url .= str_replace('.json', '', $url);
+			$url = str_replace('.json', '', $url);
 			if ($id) {
 				$url .= '/'.$id;
 			}
