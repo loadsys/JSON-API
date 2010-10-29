@@ -101,7 +101,6 @@ class JsonSource extends Datasource {
 	 */
 	public function describe(&$Model) {
 		$url = $this->_setApiUrl($Model);
-		$url .= '/describe.json';
 		$response = $this->_makeApiCall($url, 'get');
 		$Model->_schema = $response;
 		return $response;
@@ -117,7 +116,6 @@ class JsonSource extends Datasource {
 	 */
 	public function read(&$Model, $query = array()) {
 		$url = $this->_setApiUrl($Model);
-		$url .= '/index.json';
 		return $this->_makeApiCall($url, 'get');
 	}
 	
@@ -132,7 +130,6 @@ class JsonSource extends Datasource {
 	 */
 	public function create(&$Model, $fields = null, $values = null) {
 		$url = $this->_setApiUrl($Model);
-		$url .= '/add.json';
 		$data = array_combine($fields, $values);
 		return $this->_makeApiCall($url, 'post', $data);
 	}
@@ -147,8 +144,7 @@ class JsonSource extends Datasource {
 	 * @return void
 	 */
 	public function update(&$Model, $fields = null, $values = null) {
-		$url = $this->_setApiUrl($Model);
-		$url .= '/edit/'.$Model->id.'.json';
+		$url = $this->_setApiUrl($Model, $Model->id);
 		$data = array_combine($fields, $values);
 		return $this->_makeApiCall($url, 'put', $data);
 	}
@@ -162,8 +158,7 @@ class JsonSource extends Datasource {
 	 * @return void
 	 */
 	public function delete(&$Model, $id = null) {
-		$url = $this->_setApiUrl($Model);
-		$url .= '/delete/'.$id.'.json';
+		$url = $this->_setApiUrl($Model, $id);
 		return $this->_makeApiCall($url, 'delete');
 	}
 	
@@ -185,7 +180,6 @@ class JsonSource extends Datasource {
 	 * @access protected
 	 * @param mixed $url. (default: null)
 	 * @param mixed $type. (default: null)
-	 * @param mixed &$Model
 	 * @param mixed $data. (default: null)
 	 * @return void
 	 */
@@ -205,13 +199,23 @@ class JsonSource extends Datasource {
 	 * @param mixed &$Model
 	 * @return void
 	 */
-	protected function _setApiUrl(&$Model) {
+	protected function _setApiUrl(&$Model, $id = null) {
 		$url = $this->config['base_url'];
 		if (substr($url, strlen($url) - 1) != '/') {
 			$url .= '/';
 		}
 		if (property_exists($Model, 'apiModel')) {
 			$url .= Inflector::pluralize(strtolower($Model->apiModel));
+		}
+		if (property_exists($Model, 'apiAction')) {
+			$url .= '/'.strtolower(Inflector::underscore($Model->apiAction));
+			$url .= str_replace('.json', '', $url);
+			if ($id) {
+				$url .= '/'.$id;
+			}
+		}
+		if (substr($url, strlen($url) - 5) != '.json') {
+			$url .= '.json';
 		}
 		return $url;
 	}
