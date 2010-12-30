@@ -131,6 +131,7 @@ class ServerResponseComponent extends Object {
 		$this->controller = $controller;
 		$this->setOptions($settings);
 		$this->isJson = ($this->controller->params['url']['ext'] == 'json');
+		$callback = (!empty($this->controller->params['url']['callback']) ? $this->controller['url']['callback'] : null);
 		$this->responseData = array(
 			'controller' => $this->controller->params['controller'],
 			'action' => $this->controller->params['action'],
@@ -140,6 +141,7 @@ class ServerResponseComponent extends Object {
 			'code' => null,
 			'message' => null,
 			'success' => null,
+			'callback' => $callback,
 			'response' => null,
 			'paging' => null
 		);
@@ -248,8 +250,14 @@ class ServerResponseComponent extends Object {
 				$this->responseData['response'] = $returnData;
 			}
 		}
-		echo json_encode($this->responseData);
-		exit();		
+		if (!empty($this->responseData['callback'])) {
+			echo $this->responseData['callback'] . "(";
+			echo json_encode($this->responseData);
+			echo ")";
+		} else {
+			echo json_encode($this->responseData);
+		}
+		exit();
 	}
 	
 	/**
